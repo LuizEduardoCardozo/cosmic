@@ -1,0 +1,30 @@
+strict graph {
+
+
+	"doc1.md" [ color="2", colorscheme="blues3", fillcolor="1", style="filled",  weight=0 ];
+
+	"doc1.md" -- "topic 2" [  weight=0 ];
+
+	"doc1.md" -- "topic 1" [  weight=0 ];
+
+	"topic 1" [ color="2", colorscheme="greens3", fillcolor="1", style="filled",  weight=0 ];
+
+	"topic 1" -- "doc1.md" [  weight=0 ];
+
+	"topic 2" [ color="2", colorscheme="greens3", fillcolor="1", style="filled",  weight=0 ];
+
+	"topic 2" -- "doc1.md" [  weight=0 ];
+
+	"topic 2" -- "doc2.md" [  weight=0 ];
+
+	"doc2.md" [ color="2", colorscheme="blues3", fillcolor="1", style="filled",  weight=0 ];
+
+	"doc2.md" -- "topic 3" [  weight=0 ];
+
+	"doc2.md" -- "topic 2" [  weight=0 ];
+
+	"topic 3" [ color="2", colorscheme="greens3", fillcolor="1", style="filled",  weight=0 ];
+
+	"topic 3" -- "doc2.md" [  weight=0 ];
+
+}

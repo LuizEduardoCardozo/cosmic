@@ -1,10 +1,10 @@
 package main
 
 import (
+	"crypto/sha256"
 	"fmt"
 	"os"
 	"path/filepath"
-	"reflect"
 	"regexp"
 	"strings"
 
@@ -12,7 +12,7 @@ import (
 	"github.com/dominikbraun/graph/draw"
 )
 
-const tagsRegex = `\[\[(.*?)\]\]`
+const tagsRegex = `\[\[.*?\]\]`
 
 type Tag struct {
 	Name string
@@ -24,10 +24,13 @@ type Source struct {
 	Tags []Tag
 }
 
-type Node struct {
-	Name    string
-	Links   *[]Node
-	Sources *[]Source
+var Sources = make(map[string]Source, 0)
+
+func HashSource(s Source) (bs string) {
+	h := sha256.New()
+	h.Write([]byte(s.Path))
+	bs = string(h.Sum(nil))
+	return
 }
 
 func readFile(filename string) ([]byte, error) {
@@ -39,22 +42,20 @@ func readFile(filename string) ([]byte, error) {
 }
 
 func CleanTag(tag string) string {
-	tag = tag[2 : len(tag)-2]
-	tag = strings.TrimSpace(tag)
-	return tag
+	return strings.TrimSpace(tag[2 : len(tag)-2])
 }
 
 func ExtractMapKeys(m map[string]bool) []string {
-	keys := reflect.ValueOf(m).MapKeys()
-	convKeys := make([]string, len(keys))
-	for _, key := range keys {
-		convKeys = append(convKeys, key.String())
+	keys := make([]string, 0)
+	for k := range m {
+		keys = append(keys, k)
 	}
-	return convKeys
+	return keys
 }
 
 func GetTagsFromString(tagsRegex, s string) []string {
-	return regexp.MustCompile(tagsRegex).FindAllString(s, -1)
+	tags := regexp.MustCompile(tagsRegex).FindAllString(s, -1)
+	return tags
 }
 
 func ExtractTagsFromString(fileContent []byte) []string {
@@ -71,7 +72,7 @@ func ExtractTagsFromString(fileContent []byte) []string {
 	return ExtractMapKeys(tags)
 }
 
-func ProccessSource(source string) *Source {
+func ProccessSource(sources []string) {
 	exec, err := os.Getwd()
 	if err != nil {
 		panic(err)
@@ -81,41 +82,60 @@ func ProccessSource(source string) *Source {
 		panic(err)
 	}
 
-	filePath := filepath.Join(wd, source)
-	fileContent, error := readFile(filePath)
-	if error != nil {
-		panic(error)
-	}
+	for _, source := range sources {
+		filePath := filepath.Join(wd, source)
+		fileContent, error := readFile(filePath)
+		if error != nil {
+			panic(error)
+		}
 
-	tags := []Tag{}
-	for _, tag := range ExtractTagsFromString(fileContent) {
-		tags = append(tags, Tag{Name: tag})
-	}
+		tags := make([]Tag, 0)
+		for _, tag := range ExtractTagsFromString(fileContent) {
+			tags = append(tags, Tag{Name: tag})
+		}
 
-	return &Source{
-		Name: source,
-		Path: filePath,
-		Tags: tags,
+		s := Source{
+			Name: source,
+			Path: filePath,
+			Tags: tags,
+		}
+
+		hash := HashSource(s)
+
+		Sources[hash] = s
 	}
 }
 
-func main() {
-	file := os.Args[1]
+func DrawGraph() {
+	g := graph.New(func(s string) string { return s })
 
-	source := ProccessSource(file)
-
-	getTagHash := func(t Tag) string {
-		return t.Name
+	for _, source := range Sources {
+		g.AddVertex(source.Name,
+			graph.VertexAttribute("colorscheme", "blues3"),
+			graph.VertexAttribute("style", "filled"),
+			graph.VertexAttribute("color", "2"),
+			graph.VertexAttribute("fillcolor", "1"),
+		)
+		for _, tag := range source.Tags {
+			g.AddVertex(tag.Name,
+				graph.VertexAttribute("colorscheme", "greens3"),
+				graph.VertexAttribute("style", "filled"),
+				graph.VertexAttribute("color", "2"),
+				graph.VertexAttribute("fillcolor", "1"),
+			)
+			g.AddEdge(source.Name, tag.Name)
+		}
+		fmt.Printf("Source: %+v\n", source)
 	}
-
-	g := graph.New(getTagHash)
-
-	for _, tag := range source.Tags {
-		g.AddVertex(tag)
-	}
-
-	fmt.Printf("Source: %+v\n", source)
 
 	output, _ := os.Create("./mygraph.gv")
 	draw.DOT(g, output)
+}
+
+func main() {
+	file := os.Args[1:3]
+	fmt.Println("Proccessing filess: ", file)
+
+	ProccessSource(file)
+	DrawGraph()
 }
